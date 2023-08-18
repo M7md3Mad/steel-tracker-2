@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update Approval Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.approval_date.label }}<br>
+            {{ form.approval_date }}
+        </div>
+        <div>
+            {{ form.approval_comments.label }}<br>
+            {{ form.approval_comments }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

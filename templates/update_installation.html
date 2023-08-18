@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Update Installation Steps</title>
+</head>
+<body>
+    <h2>Update Installation Steps for {{ member.name }}</h2>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        <p>{{ form.installation_steps.label }}: {{ form.installation_steps() }}</p>
+        <p>{{ form.installation_dates.label }}: {{ form.installation_dates() }}</p>
+        <p><input type="submit" value="Update Steps"></p>
+    </form>
+</body>
+</html>

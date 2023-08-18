@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update Dispatch Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.dispatch_date.label }}<br>
+            {{ form.dispatch_date }}
+        </div>
+        <div>
+            {{ form.delivery_number.label }}<br>
+            {{ form.delivery_number }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

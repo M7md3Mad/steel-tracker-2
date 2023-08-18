@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update Receive and Installation Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.receive_date.label }}<br>
+            {{ form.receive_date }}
+        </div>
+        <div>
+            {{ form.site_receive_number.label }}<br>
+            {{ form.site_receive_number }}
+        </div>
+        <div>
+            {{ form.installation_steps.label }}<br>
+            {{ form.installation_steps }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

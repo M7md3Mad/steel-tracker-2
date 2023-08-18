@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2>Add Steel Member</h2>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.name.label }} {{ form.name(class="form-control") }}
+        </div>
+        <!-- Similarly for dispatch_date, delivery_date, and installation_date -->
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+{% endblock %}

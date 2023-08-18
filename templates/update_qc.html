@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update QC Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.qc_date.label }}<br>
+            {{ form.qc_date }}
+        </div>
+        <div>
+            {{ form.qc_report_number.label }}<br>
+            {{ form.qc_report_number }}
+        </div>
+        <div>
+            {{ form.qc_comments.label }}<br>
+            {{ form.qc_comments }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

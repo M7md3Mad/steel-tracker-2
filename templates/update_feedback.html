@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Provide Feedback</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.feedback_date.label }}<br>
+            {{ form.feedback_date }}
+        </div>
+        <div>
+            {{ form.feedback_comments.label }}<br>
+            {{ form.feedback_comments }}
+        </div>
+        <div>
+            {{ form.client_satisfaction_level.label }}<br>
+            {{ form.client_satisfaction_level }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

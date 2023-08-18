@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update Maintenance and Service Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.service_date.label }}<br>
+            {{ form.service_date }}
+        </div>
+        <div>
+            {{ form.service_comments.label }}<br>
+            {{ form.service_comments }}
+        </div>
+        <div>
+            {{ form.service_type.label }}<br>
+            {{ form.service_type }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}

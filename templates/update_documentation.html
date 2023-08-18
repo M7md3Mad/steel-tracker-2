@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Update Documentation Status</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.document_date.label }}<br>
+            {{ form.document_date }}
+        </div>
+        <div>
+            {{ form.document_number.label }}<br>
+            {{ form.document_number }}
+        </div>
+        <div>
+            {{ form.document_comments.label }}<br>
+            {{ form.document_comments }}
+        </div>
+        <div>
+            {{ form.submit() }}
+        </div>
+    </form>
+{% endblock %}
