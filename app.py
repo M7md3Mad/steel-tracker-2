@@ -6,28 +6,37 @@ from flask_wtf import FlaskForm
 from wtforms import TextAreaField
 from wtforms import StringField, PasswordField, SubmitField, DateField, SelectField
 from wtforms.validators import DataRequired, EqualTo
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user, UserMixin
 from wtforms.validators import Optional
 from datetime import datetime
-
+from flask_principal import Principal, Permission, RoleNeed
 
 #from wtforms.validators import Email
 
-login_manager = LoginManager()
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123456@localhost:5433/postgres'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = '123456'  # Change this to a secret key
+# Initialize Flask-Login and Flask-Principal
+login_manager = LoginManager()
 login_manager.init_app(app)
+principals = Principal(app)
 db = SQLAlchemy(app)
 
+# Define roles
+admin_permission = Permission(RoleNeed('admin'))
+fabrication_permission = Permission(RoleNeed('fabrication'))
+dispatch_permission = Permission(RoleNeed('dispatch'))
+project_permission = Permission(RoleNeed('project'))
 
 
-class User(db.Model):
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+class User(db.Model, UserMixin):
 
     def get_id(self):
         return str(self.id)
@@ -50,24 +59,26 @@ class User(db.Model):
 
 class SteelMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
     cutting_list_number = db.Column(db.String, nullable=False)
     quantities = db.Column(db.Integer, nullable=False)
     weight_per_piece = db.Column(db.Float, nullable=False)
     surface_area_per_piece = db.Column(db.Float, nullable=False)
     total_weight = db.Column(db.Float, nullable=True)
     total_surface_area = db.Column(db.Float, nullable=True)
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), nullable=False)
     dispatch_date = db.Column(db.DateTime, nullable=True)
     delivery_date = db.Column(db.DateTime, nullable=True)
     installation_date = db.Column(db.DateTime, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
     @property
     def total_weight(self):
         return self.quantities * self.weight_per_piece
+
     @property
     def total_surface_area(self):
         return self.quantities * self.surface_area_per_piece
+
 
 class FabricationStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
