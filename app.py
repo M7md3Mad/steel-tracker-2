@@ -8,6 +8,8 @@ from wtforms import StringField, PasswordField, SubmitField, DateField, SelectFi
 from wtforms.validators import DataRequired, EqualTo
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from wtforms.validators import Optional
+from datetime import datetime
+
 
 #from wtforms.validators import Email
 
@@ -47,6 +49,7 @@ class User(db.Model):
         return check_password_hash(self.password, password)
 
 class SteelMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
     cutting_list_number = db.Column(db.String, nullable=False)
     quantities = db.Column(db.Integer, nullable=False)
     weight_per_piece = db.Column(db.Float, nullable=False)
@@ -58,15 +61,13 @@ class SteelMember(db.Model):
     dispatch_date = db.Column(db.DateTime, nullable=True)
     delivery_date = db.Column(db.DateTime, nullable=True)
     installation_date = db.Column(db.DateTime, nullable=True)
-    
-    cutting_list_number = db.Column(db.String, nullable=False)
-    quantities = db.Column(db.Integer, nullable=False)
-    weight_per_piece = db.Column(db.Float, nullable=False)
-    surface_area_per_piece = db.Column(db.Float, nullable=False)
-    total_weight = db.Column(db.Float, nullable=True)
-    total_surface_area = db.Column(db.Float, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
+    @property
+    def total_weight(self):
+        return self.quantities * self.weight_per_piece
+    @property
+    def total_surface_area(self):
+        return self.quantities * self.surface_area_per_piece
 
 class FabricationStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -146,6 +147,17 @@ class MaintenanceForm(FlaskForm):
     service_comments = TextAreaField('Service Comments', validators=[DataRequired()])
     service_type = SelectField('Service Type', choices=[('Routine Maintenance', 'Routine Maintenance'), ('Repair', 'Repair'), ('Replacement', 'Replacement'), ('Inspection', 'Inspection')], validators=[DataRequired()])
     submit = SubmitField('Update Service Status')
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    department = db.Column(db.String(100), nullable=False)  # e.g., 'Fabrication', 'Dispatch', 'Project'
+    report_type = db.Column(db.String(100), nullable=False)  # e.g., 'Delivery Note', 'Fabrication Release'
+    generated_on = db.Column(db.DateTime, default=datetime.utcnow)
+    content = db.Column(db.Text, nullable=False)  # The actual content or data of the report
+
+    # Foreign key to link report to a specific steel member
+    steel_member_id = db.Column(db.Integer, db.ForeignKey('steel_member.id'), nullable=False)
+    steel_member = db.relationship('SteelMember', backref=db.backref('reports', lazy=True))
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
