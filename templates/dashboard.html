@@ -9,7 +9,7 @@
         <!-- Add similar fields for delivery and installation dates -->
         <button type="submit">Search</button>
     </form>
-    
+   
     {% if current_user.role in ['Admin', 'Editor'] %}
     <a href="{{ url_for('add_member') }}" class="btn btn-primary mb-3">Add Steel Member</a>
     {% endif %}

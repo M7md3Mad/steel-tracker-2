@@ -162,6 +162,9 @@ class Project(db.Model):
     def __repr__(self):
         return f"<Project {self.name}>"
 
+class ProjectForm(FlaskForm):
+    name = StringField('Project Name', validators=[DataRequired()])
+    submit = SubmitField('Create Project')
 
 class FabricationForm(FlaskForm):
         pass
@@ -299,6 +302,18 @@ def admin():
             flash('User roles have been updated successfully.', 'success')
 
     return render_template('admin.html', users=users)
+
+@app.route('/create_project', methods=['GET', 'POST'])
+@login_required  # Assuming only logged-in users can create projects
+def create_project():
+    form = ProjectForm()
+    if form.validate_on_submit():
+        project = Project(name=form.name.data)
+        db.session.add(project)
+        db.session.commit()
+        flash('Project successfully created!', 'success')
+        return redirect(url_for('dashboard'))  # Or wherever you want to redirect after creating a project
+    return render_template('create_project.html', form=form)
 
 class SteelMemberForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
@@ -638,6 +653,17 @@ def select_project():
     projects = Project.query.all()
     return render_template('select_project.html', projects=projects)
 
+@app.route('/set_current_project', methods=['POST'])
+def set_current_project():
+    project_name = request.form.get('project_name')
+    project = Project.query.filter_by(name=project_name).first()
+    if project:
+        session['current_project_id'] = project.id
+        return redirect(url_for('dashboard'))
+    else:
+        flash('Please select a valid project.', 'danger')
+        return redirect(url_for('select_project'))
+   
 @app.route('/reports')
 @login_required
 def list_reports():

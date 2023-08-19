@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <h2>Select a Project</h2>
+        {% if projects %}
+            <form action="{{ url_for('set_current_project') }}" method="post">
+                <div class="form-group">
+                    <label for="project">Choose a project:</label>
+                    <select name="project_name" class="form-select">
+                        {% for project in projects %}
+                            <option value="{{ project.name }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="submit" value="Select Project" class="btn btn-primary">
+            </form>
+        {% else %}
+            <p>No projects available. Would you like to create one?</p>
+            <a href="{{ url_for('create_project') }}" class="btn btn-success">Create New Project</a>
+        {% endif %}
+    </div>
+{% endblock %}
