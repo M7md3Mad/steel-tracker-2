@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Reports</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Department</th>
+            <th>Type</th>
+            <th>Generated On</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for report in reports %}
+        <tr>
+            <td>{{ report.id }}</td>
+            <td>{{ report.department }}</td>
+            <td>{{ report.report_type }}</td>
+            <td>{{ report.generated_on }}</td>
+            <td><a href="{{ url_for('view_report', report_id=report.id) }}">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

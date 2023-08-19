@@ -1,5 +1,4 @@
-
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash,session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf import FlaskForm
@@ -10,9 +9,8 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 from wtforms.validators import Optional
 from datetime import datetime
 from flask_principal import Principal, Permission, RoleNeed
-
-#from wtforms.validators import Email
-
+from matplotlib import pyplot as plt
+from datetime import date, timedelta
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123456@localhost:5433/postgres'
@@ -23,18 +21,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 principals = Principal(app)
 db = SQLAlchemy(app)
-
-# Define roles
-admin_permission = Permission(RoleNeed('admin'))
-fabrication_permission = Permission(RoleNeed('fabrication'))
-dispatch_permission = Permission(RoleNeed('dispatch'))
-project_permission = Permission(RoleNeed('project'))
-
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 class User(db.Model, UserMixin):
 
@@ -49,27 +35,91 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.String(20), default='Viewer')
-
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=True)  # Foreign key to Role model
+    role = db.relationship('Role', backref='users')  # Relationship to Role model
+    
     def set_password(self, password):
         self.password = generate_password_hash(password)
         
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
+# Define roles
+admin_permission = Permission(RoleNeed('admin'))
+fabrication_permission = Permission(RoleNeed('fabrication'))
+dispatch_permission = Permission(RoleNeed('dispatch'))
+project_permission = Permission(RoleNeed('project'))
+
+
+
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<Role {self.name}>"
+
+
+@app.before_request
+def restrict_access_to_routes():
+    # Restricting access to routes based on user roles
+    if not current_user.is_authenticated:
+        return
+    user_role = current_user.role.name if current_user.role else ""
+    if request.endpoint in ["add_member", "edit_member", "delete_member"] and user_role != "project_manager":
+        return redirect(url_for('dashboard'))
+    if request.endpoint in ["update_fabrication"] and user_role != "fabrication_engineer":
+        return redirect(url_for('dashboard'))
+    if request.endpoint in ["update_dispatch"] and user_role != "dispatch_engineer":
+        return redirect(url_for('dashboard'))
+    if request.endpoint in ["update_receive", "update_installation"] and user_role not in ["site_engineer", "supervisor"]:
+        return redirect(url_for('dashboard'))
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+def create_admin_user():
+    # Check if there are any users in the User table
+    if not User.query.first():
+        # Check if the admin role exists; if not, create it
+        admin_role = Role.query.filter_by(name='admin').first()
+        if not admin_role:
+            admin_role = Role(name='admin', description='Administrator')
+            db.session.add(admin_role)
+            db.session.commit()
+
+        # Create the admin user
+        admin = User(username='admin')
+        admin.set_password('admin')
+        admin.role = admin_role
+
+        # Add admin user to the database
+        db.session.add(admin)
+        db.session.commit()
+
+# Call the function to ensure admin user is created when the app runs
+with app.app_context():
+   create_admin_user()
+
+
 class SteelMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), nullable=False)
-    cutting_list_number = db.Column(db.String, nullable=False)
-    quantities = db.Column(db.Integer, nullable=False)
-    weight_per_piece = db.Column(db.Float, nullable=False)
-    surface_area_per_piece = db.Column(db.Float, nullable=False)
+    name = db.Column(db.String(80), nullable=True)
+    cutting_list_number = db.Column(db.String, nullable=True)
+    quantities = db.Column(db.Integer, nullable=True)
+    weight_per_piece = db.Column(db.Float, nullable=True)
+    surface_area_per_piece = db.Column(db.Float, nullable=True)
     total_weight = db.Column(db.Float, nullable=True)
     total_surface_area = db.Column(db.Float, nullable=True)
     dispatch_date = db.Column(db.DateTime, nullable=True)
     delivery_date = db.Column(db.DateTime, nullable=True)
     installation_date = db.Column(db.DateTime, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=True)
+
 
     @property
     def total_weight(self):
@@ -100,6 +150,17 @@ class ReceiveStatus(db.Model):
     site_receive_number = db.Column(db.String, nullable=False)
     steel_member_id = db.Column(db.Integer, db.ForeignKey('steel_member.id'), nullable=False)
 
+class Project(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship with SteelMember
+    members = db.relationship('SteelMember', backref='project', lazy=True)
+    
+    def __repr__(self):
+        return f"<Project {self.name}>"
 
 
 class FabricationForm(FlaskForm):
@@ -319,8 +380,6 @@ def bulk_edit():
     return redirect(url_for('dashboard'))
 
 
-
-
 @app.route('/update_fabrication/<int:member_id>', methods=['GET', 'POST'])
 
 
@@ -340,6 +399,44 @@ def update_dispatch(member_id):
     return render_template('update_dispatch.html', title='Update Dispatch Status', form=form, member=member)
 
 
+
+def update_dispatch(member_id):
+    member = SteelMember.query.get_or_404(member_id)
+    form = DispatchForm()
+    if form.validate_on_submit():
+        member.dispatch_date = form.dispatch_date.data
+        member.delivery_number = form.delivery_number.data
+        db.session.commit()
+        flash('Dispatch status updated successfully!', 'success')
+        return redirect(url_for('dashboard'))
+    return render_template('update_dispatch.html', form=form, member=member)
+def update_fabrication(member_id):
+    member = SteelMember.query.get_or_404(member_id)
+    form = FabricationForm()
+    if form.validate_on_submit():
+        member.fabrication_date = form.fabrication_date.data
+        member.fabrication_release_number = form.fabrication_release_number.data
+        db.session.commit()
+        flash('Fabrication status updated successfully!', 'success')
+        return redirect(url_for('dashboard'))
+    return render_template('update_fabrication.html', form=form, member=member)
+
+
+# Update fabrication status
+@app.route('/update_fabrication/<int:member_id>', methods=['GET', 'POST'])
+@login_required
+def update_fabrication(member_id):
+    member = SteelMember.query.get_or_404(member_id)
+    form = FabricationForm()
+    if form.validate_on_submit():
+        member.fabrication_date = form.fabrication_date.data
+        member.fabrication_release_number = form.fabrication_release_number.data
+        db.session.commit()
+        flash('Fabrication status updated successfully!', 'success')
+        return redirect(url_for('dashboard'))
+    return render_template('update_fabrication.html', form=form, member=member)
+
+# Update receive status
 @app.route('/update_receive/<int:member_id>', methods=['GET', 'POST'])
 def update_receive(member_id):
     member = SteelMember.query.get_or_404(member_id)
@@ -385,36 +482,7 @@ def update_installation(member_id):
         flash('Installation steps updated successfully!', 'success')
         return redirect(url_for('dashboard'))
     return render_template('update_installation.html', form=form, member=member)
-def update_receive(member_id):
-    member = SteelMember.query.get_or_404(member_id)
-    form = ReceiveForm()
-    if form.validate_on_submit():
-        member.receive_date = form.receive_date.data
-        member.site_receive_number = form.site_receive_number.data
-        db.session.commit()
-        flash('Receive status updated successfully!', 'success')
-        return redirect(url_for('dashboard'))
-    return render_template('update_receive.html', form=form, member=member)
-def update_dispatch(member_id):
-    member = SteelMember.query.get_or_404(member_id)
-    form = DispatchForm()
-    if form.validate_on_submit():
-        member.dispatch_date = form.dispatch_date.data
-        member.delivery_number = form.delivery_number.data
-        db.session.commit()
-        flash('Dispatch status updated successfully!', 'success')
-        return redirect(url_for('dashboard'))
-    return render_template('update_dispatch.html', form=form, member=member)
-def update_fabrication(member_id):
-    member = SteelMember.query.get_or_404(member_id)
-    form = FabricationForm()
-    if form.validate_on_submit():
-        member.fabrication_date = form.fabrication_date.data
-        member.fabrication_release_number = form.fabrication_release_number.data
-        db.session.commit()
-        flash('Fabrication status updated successfully!', 'success')
-        return redirect(url_for('dashboard'))
-    return render_template('update_fabrication.html', form=form, member=member)
+
 
 @app.route('/update_approval/<int:member_id>', methods=['GET', 'POST'])
 def update_approval(member_id):
@@ -486,6 +554,12 @@ def update_service(member_id):
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
+    current_project_id = session.get('current_project_id')
+    if not current_project_id:
+        flash('Please select a project first', 'warning')
+        return redirect(url_for('select_project'))
+    
+    current_project = Project.query.get_or_404(current_project_id)
     search_name = request.args.get('search_name')
     from_dispatch_date = request.args.get('from_dispatch_date')
     to_dispatch_date = request.args.get('to_dispatch_date')
@@ -500,7 +574,82 @@ def dashboard():
     # Add logic for other search criteria
 
     members = query.all()
-    return render_template('dashboard.html', members=members)
+    return render_template('dashboard.html', current_project=current_project, members=members)
+   
+
+@app.route('/generate_report', methods=['GET', 'POST'])
+def generate_report():
+    if request.method == 'POST':
+        department = request.form.get('department')
+        report_type = request.form.get('report_type')
+        
+        content = f"Report for {department} - {report_type}\n\n"
+        
+        if report_type == 'Delivery Note':
+            # Fetch all steel members dispatched on a particular date
+            dispatch_date = request.form.get('date')
+            steel_members = SteelMember.query.filter_by(dispatch_date=dispatch_date).all()
+            for member in steel_members:
+                content += f"Member ID: {member.id}, Name: {member.name}, Dispatch Date: {member.dispatch_date}\n"
+        
+        elif report_type == 'Fabrication Release':
+            # Fetch all steel members fabricated within a date range
+            start_date = request.form.get('start_date')
+            end_date = request.form.get('end_date')
+            steel_members = SteelMember.query.filter(SteelMember.fabrication_date.between(start_date, end_date)).all()
+            for member in steel_members:
+                content += f"Member ID: {member.id}, Name: {member.name}, Fabrication Date: {member.fabrication_date}\n"
+        
+        # ... handle other report types ...
+
+        # Store the generated report in the database
+        report = Report(department=department, report_type=report_type, content=content)
+        db.session.add(report)
+        db.session.commit()
+        
+        flash('Report generated successfully!', 'success')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('generate_report.html')
+
+@app.route('/update_dispatch_date/<int:member_id>', methods=['POST'])
+def update_dispatch_date(member_id):
+    member = SteelMember.query.get_or_404(member_id)
+    member.dispatch_date = request.form.get('dispatch_date')
+    db.session.commit()
+    
+    # Automatically generate a "Delivery Note" report after updating the dispatch date
+    content = f"Delivery Note for {member.name}\n\nDispatch Date: {member.dispatch_date}"
+    report = Report(department='Dispatch', report_type='Delivery Note', content=content)
+    db.session.add(report)
+    db.session.commit()
+    
+    flash('Dispatch date updated and Delivery Note generated!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/select_project', methods=['GET', 'POST'])
+@login_required
+def select_project():
+    if request.method == 'POST':
+        project_id = request.form.get('selected_project')
+        session['current_project_id'] = project_id
+        return redirect(url_for('dashboard'))
+    
+    projects = Project.query.all()
+    return render_template('select_project.html', projects=projects)
+
+@app.route('/reports')
+@login_required
+def list_reports():
+    reports = Report.query.all()
+    return render_template('list_reports.html', reports=reports)
+
+@app.route('/report/<int:report_id>')
+@login_required
+def view_report(report_id):
+    report = Report.query.get_or_404(report_id)
+    return render_template('view_report.html', report=report)
+
 
 @app.errorhandler(404)
 def not_found_error(error):
@@ -521,5 +670,95 @@ def profile():
 def home():
     return render_template('base.html')
 
+# Generate Gantt Chart
+@app.route('/generate_gantt_chart/<int:project_id>')
+@login_required
+def generate_gantt_chart(project_id):
+    project = Project.query.get_or_404(project_id)
+    members = project.members
+
+    fig, ax = plt.subplots(figsize=(10, len(members)))
+
+    for index, member in enumerate(members):
+        start_date = member.dispatch_date if member.dispatch_date else date.today()
+        end_date = member.installation_date if member.installation_date else start_date + timedelta(days=7)  # Default duration is set to 7 days
+        ax.barh(index, (end_date - start_date).days, left=start_date, align='center', label=member.name)
+
+    ax.set_yticks(range(len(members)))
+    ax.set_yticklabels([member.name for member in members])
+    ax.set_xlabel('Timeline')
+    ax.set_title(f'Gantt Chart for Project {project.name}')
+    plt.tight_layout()
+
+    img_path = os.path.join('static', 'gantt_chart.png')
+    plt.savefig(img_path)
+    plt.close(fig)
+
+    return render_template('gantt_chart.html', img_path=img_path)
+
+# Generate Percentage Completion Chart
+@app.route('/generate_percentage_completion_chart_route/<int:project_id>')
+@login_required
+def generate_percentage_completion_chart_route(project_id):
+    project = Project.query.get_or_404(project_id)
+    members = project.members
+
+    total_members = len(members)
+    dispatched = len([member for member in members if member.dispatch_date])
+    delivered = len([member for member in members if member.delivery_date])
+    installed = len([member for member in members if member.installation_date])
+
+    labels = ['Dispatched', 'Delivered', 'Installed']
+    values = [dispatched, delivered, installed]
+    colors = ['#FF9999', '#66B2FF', '#99FF99']
+
+    fig, ax = plt.subplots()
+    ax.pie(values, labels=labels, colors=colors, startangle=90, autopct='%1.1f%%')
+    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    plt.title(f'Percentage Completion Chart for Project {project.name}')
+
+    img_path = os.path.join('static', 'percentage_completion_chart.png')
+    plt.savefig(img_path)
+    plt.close(fig)
+
+    return render_template('percentage_completion_chart.html', img_path=img_path)
+
+# Generate Delivery Rate Chart
+@app.route('/generate_delivery_rate_chart_route/<int:project_id>')
+@login_required
+def generate_delivery_rate_chart_route(project_id):
+    project = Project.query.get_or_404(project_id)
+    members = project.members
+
+    dispatch_dates = [member.dispatch_date for member in members if member.dispatch_date]
+    delivery_dates = [member.delivery_date for member in members if member.delivery_date]
+    installation_dates = [member.installation_date for member in members if member.installation_date]
+
+    date_range = [date.today() - timedelta(days=i) for i in range(30)]  # Last 30 days
+    dispatch_counts = [len([d for d in dispatch_dates if d == day]) for day in date_range]
+    delivery_counts = [len([d for d in delivery_dates if d == day]) for day in date_range]
+    installation_counts = [len([d for d in installation_dates if d == day]) for day in date_range]
+
+    fig, ax = plt.subplots()
+    ax.plot(date_range, dispatch_counts, '-b', label='Dispatched')
+    ax.plot(date_range, delivery_counts, '-r', label='Delivered')
+    ax.plot(date_range, installation_counts, '-g', label='Installed')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of Steel Members')
+    ax.set_title(f'Delivery Rate Chart for Project {project.name}')
+    ax.legend(loc='upper left')
+    fig.autofmt_xdate()
+
+    img_path = os.path.join('static', 'delivery_rate_chart.png')
+    plt.savefig(img_path)
+    plt.close(fig)
+
+    return render_template('delivery_rate_chart.html', img_path=img_path)
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True) 
+   
+
+
+

@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Project Report</h1>
+        <h2>Project Name: {{ project_name }}</h2>
+        <h2>Project Number: {{ project_number }}</h2>
+    </header>
+
+    <section>
+        <h3>Project Details:</h3>
+        <p>Receive Date: {{ fabrication_date }}</p>
+        <p>Site Receive Number: {{ fabrication_release_number }}</p>
+    </section>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Steel Name (MARK)</th>
+                <th>Steel Profile</th>
+                <th>Weight</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.mark }}</td>
+                <td>{{ item.steel_profile }}</td>
+                <td>{{ item.weight }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <footer>
+        <p>Total Weight: {{ total_weight }}</p>
+        <p>Responsible Member: {{ responsible_member }}</p>
+        <p>Manager: {{ manager }}</p>
+        <p>Signatures:</p>
+        <div>_______________________</div>
+        <div>_______________________</div>
+    </footer>
+</body>
+</html>
