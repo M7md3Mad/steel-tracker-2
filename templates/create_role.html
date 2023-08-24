@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Create Role</h1>
+<form method="post">
+    <label for="name">Name:</label>
+    <input type="text" name="name" required>
+    <br>
+    <label for="description">Description:</label>
+    <input type="text" name="description">
+    <br>
+    <label for="access_values">Access Values:</label>
+    <input type="text" name="access_values">
+    <br>
+    <label for="create_reports">Create Reports:</label>
+    <input type="checkbox" name="create_reports">
+    <br>
+    <input type="submit" value="Create Role">
+</form>
+{% endblock %}

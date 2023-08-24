@@ -22,6 +22,7 @@ login_manager.init_app(app)
 principals = Principal(app)
 db = SQLAlchemy(app)
 
+
 class User(db.Model, UserMixin):
 
     def get_id(self):
@@ -44,22 +45,26 @@ class User(db.Model, UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
+    access_values = db.Column(db.String(200)) # Define specific values that can be accessed
+    create_reports = db.Column(db.Boolean) # Define if the role can create reports
+    # Additional fields for specific permissions can be added here
+    # Define specific permissions
+    can_access_fabrication = db.Column(db.Boolean, default=False)
+    can_edit_fabrication = db.Column(db.Boolean, default=False)
+    # Add more permissions as needed
+    # ...
+    def __repr__(self):
+        return f"<Role {self.name}>"
+
 # Define roles
 admin_permission = Permission(RoleNeed('admin'))
 fabrication_permission = Permission(RoleNeed('fabrication'))
 dispatch_permission = Permission(RoleNeed('dispatch'))
 project_permission = Permission(RoleNeed('project'))
-
-
-
-class Role(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), unique=True)
-    description = db.Column(db.String(255))
-
-    def __repr__(self):
-        return f"<Role {self.name}>"
-
 
 @app.before_request
 def restrict_access_to_routes():
@@ -155,7 +160,10 @@ class Project(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+    status = db.Column(db.String(50))
+    # Additional fields and relationships can be added here
     # Relationship with SteelMember
     members = db.relationship('SteelMember', backref='project', lazy=True)
     
@@ -187,6 +195,13 @@ class QCForm(FlaskForm):
     qc_report_number = StringField('QC Report Number', validators=[DataRequired()])
     qc_comments = TextAreaField('QC Comments', validators=[DataRequired()])
     submit = SubmitField('Update QC Status')
+
+class InstallationStatus(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    member_id = db.Column(db.Integer, db.ForeignKey('steel_member.id'))
+    step1_date = db.Column(db.Date)
+    step2_date = db.Column(db.Date)
+    # Add additional steps as needed
 
 
 class InstallationForm(FlaskForm):
@@ -303,6 +318,75 @@ def admin():
 
     return render_template('admin.html', users=users)
 
+@app.route('/admin/roles', methods=['GET'])
+@login_required
+@admin_permission.require(http_exception=403)
+def view_roles():
+    roles = Role.query.all()
+    return render_template('view_roles.html', roles=roles)
+
+@app.route('/admin/create_role', methods=['GET', 'POST'])
+@login_required
+@admin_permission.require(http_exception=403)
+def create_role():
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        access_values = request.form['access_values']
+        create_reports = request.form['create_reports']
+        can_access_fabrication = request.form['can_access_fabrication']
+        can_edit_fabrication = request.form['can_edit_fabrication']
+        role = Role(name=name, description=description, access_values=access_values,
+                    create_reports=create_reports, can_access_fabrication=can_access_fabrication,
+                    can_edit_fabrication=can_edit_fabrication)
+        db.session.add(role)
+        db.session.commit()
+        flash('Role created successfully!', 'success')
+        return redirect(url_for('view_roles'))
+    return render_template('create_role.html')
+
+@app.route('/admin/edit_role/<int:role_id>', methods=['GET', 'POST'])
+@login_required
+@admin_permission.require(http_exception=403)
+def edit_role(role_id):
+    role = Role.query.get_or_404(role_id)
+    if request.method == 'POST':
+        role.name = request.form['name']
+        role.description = request.form['description']
+        role.access_values = request.form['access_values']
+        role.create_reports = request.form['create_reports']
+        db.session.commit()
+        flash('Role updated successfully!', 'success')
+        return redirect(url_for('view_roles'))
+    return render_template('edit_role.html', role=role)
+
+@app.route('/admin/delete_role/<int:role_id>', methods=['POST'])
+@login_required
+@admin_permission.require(http_exception=403)
+def delete_role(role_id):
+    role = Role.query.get_or_404(role_id)
+    db.session.delete(role)
+    db.session.commit()
+    flash('Role deleted successfully!', 'success')
+    return redirect(url_for('view_roles'))
+
+@app.route('/projects/create', methods=['GET', 'POST'])
+@login_required
+@project_manager_permission.require(http_exception=403)
+def create_project():
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        status = request.form['status']
+        project = Project(name=name, description=description, start_date=start_date, end_date=end_date, status=status)
+        db.session.add(project)
+        db.session.commit()
+        flash('Project created successfully!', 'success')
+        return redirect(url_for('view_projects'))
+    return render_template('create_project.html')
+"""
 @app.route('/create_project', methods=['GET', 'POST'])
 @login_required  # Assuming only logged-in users can create projects
 def create_project():
@@ -314,6 +398,13 @@ def create_project():
         flash('Project successfully created!', 'success')
         return redirect(url_for('dashboard'))  # Or wherever you want to redirect after creating a project
     return render_template('create_project.html', form=form)
+"""
+@app.route('/projects')
+@login_required
+@project_manager_permission.require(http_exception=403)
+def view_projects():
+    projects = Project.query.all()
+    return render_template('view_projects.html', projects=projects)
 
 class SteelMemberForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
@@ -324,11 +415,10 @@ class SteelMemberForm(FlaskForm):
     delivery_date = DateField('Delivery Date', validators=[Optional()])
     installation_date = DateField('Installation Date', validators=[Optional()])
 
-@app.route('/add_member', methods=['GET', 'POST'])
+@app.route('/add_member/<int:project_id>', methods=['GET', 'POST'])
 @login_required
-
-def add_member():
-    
+def add_member(project_id):
+    project = Project.query.get_or_404(project_id)
     form = SteelMemberForm()
     if current_user.role not in ['Admin', 'Editor']:
         flash('You do not have permission to perform this action.', 'danger')
@@ -339,12 +429,19 @@ def add_member():
                              delivery_date=form.delivery_date.data,
                              installation_date=form.installation_date.data,
                              user_id=current_user.id)
+        member.project_id = project.id
         db.session.add(member)
         db.session.commit()
         flash('Steel member added successfully!', 'success')
         return redirect(url_for('dashboard'))
     return render_template('add_member.html', form=form)
    
+@app.route('/view_members/<int:project_id>')
+@login_required
+def view_members(project_id):
+    project = Project.query.get_or_404(project_id)
+    members = SteelMember.query.filter_by(project_id=project_id).all()
+    return render_template('view_members.html', project=project, members=members)
 
 
 @app.route('/edit_member/<int:id>', methods=['GET', 'POST'])
@@ -486,6 +583,12 @@ def update_qc(member_id):
         form.qc_comments.data = member.qc_status.qc_comments
     return render_template('update_qc.html', title='Update QC Status', form=form, member=member)
 
+@app.route('/update_installation_steps/<int:member_id>', methods=['GET', 'POST'])
+@login_required
+def update_installation_steps(member_id):
+    # Implement logic to update installation steps
+ return render_template('update_installation_steps.html')
+
 @app.route('/update_installation/<int:member_id>', methods=['GET', 'POST'])
 def update_installation(member_id):
     member = SteelMember.query.get_or_404(member_id)
@@ -589,7 +692,7 @@ def dashboard():
     # Add logic for other search criteria
 
     members = query.all()
-    return render_template('dashboard.html', current_project=current_project, members=members)
+    return render_template('dashboard.html', current_project=current_project, members=members, gantt_chart=gantt_chart, percentage_completion_chart=percentage_completion_chart, delivery_rate_chart=delivery_rate_chart)
    
 
 @app.route('/generate_report', methods=['GET', 'POST'])
@@ -781,6 +884,15 @@ def generate_delivery_rate_chart_route(project_id):
 
     return render_template('delivery_rate_chart.html', img_path=img_path)
 
+@app.route('/generate_custom_report', methods=['GET', 'POST'])
+@login_required
+def generate_custom_report():
+    form = CustomReportForm()
+    if form.validate_on_submit():
+        # Generate the custom report based on selected fields and parameters
+        # ...
+        return redirect(url_for('view_report', report_id=report.id))
+    return render_template('custom_report_form.html', form=form)
 
 if __name__ == '__main__':
     app.run(debug=True) 

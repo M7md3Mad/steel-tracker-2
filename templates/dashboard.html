@@ -33,6 +33,12 @@
     <a href="{{ url_for('generate_percentage_completion_chart_route', project_id=current_project.id) }}" class="btn btn-secondary">Generate Percentage Completion Chart</a>
     <a href="{{ url_for('generate_delivery_rate_chart_route', project_id=current_project.id) }}" class="btn btn-info">Generate Delivery Rate Chart</a>
 </div>
+<!-- dashboard.html -->
+<div class="charts">
+    <img src="{{ url_for('static', filename='gantt_chart.png') }}" alt="Gantt Chart">
+    <img src="{{ url_for('static', filename='percentage_completion_chart.png') }}" alt="Percentage Completion Chart">
+    <img src="{{ url_for('static', filename='delivery_rate_chart.png') }}" alt="Delivery Rate Chart">
+</div>
 
 {% for member in members %}
             <tr>

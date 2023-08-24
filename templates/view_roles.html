@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Roles</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Access Values</th>
+            <th>Create Reports</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for role in roles %}
+        <tr>
+            <td>{{ role.name }}</td>
+            <td>{{ role.description }}</td>
+            <td>{{ role.access_values }}</td>
+            <td>{{ role.create_reports }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<a href="{{ url_for('create_role') }}">Create New Role</a>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Edit Role</h1>
+<form method="post">
+    <label for="name">Name:</label>
+    <input type="text" name="name" value="{{ role.name }}" required>
+    <br>
+    <label for="description">Description:</label>
+    <input type="text" name="description" value="{{ role.description }}">
+    <br>
+    <label for="access_values">Access Values:</label>
+    <input type="text" name="access_values" value="{{ role.access_values }}">
+    <br>
+    <label for="create_reports">Create Reports:</label>
+    <input type="checkbox" name="create_reports" {% if role.create_reports %}checked{% endif %}>
+    <br>
+    <input type="submit" value="Update Role">
+</form>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Projects</h1>
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Start Date</th>
+        <th>End Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+    </tr>
+    {% for project in projects %}
+    <tr>
+        <td>{{ project.name }}</td>
+        <td>{{ project.description }}</td>
+        <td>{{ project.start_date }}</td>
+        <td>{{ project.end_date }}</td>
+        <td>{{ project.status }}</td>
+        <td>
+            <a href="{{ url_for('edit_project', id=project.id) }}">Edit</a> |
+            <a href="{{ url_for('delete_project', id=project.id) }}">Delete</a> |
+            <a href="{{ url_for('view_members', project_id=project.id) }}">View Members</a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+<a href="{{ url_for('create_project') }}">Create New Project</a>
+{% endblock %}
