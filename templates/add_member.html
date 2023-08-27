@@ -1,13 +1,29 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h2>Add Steel Member</h2>
+    <h2>Add Steel Member for Project: {{ project.name }}</h2>
     <form method="post">
         {{ form.hidden_tag() }}
         <div class="form-group">
             {{ form.name.label }} {{ form.name(class="form-control") }}
         </div>
-        <!-- Similarly for dispatch_date, delivery_date, and installation_date -->
+        <div class="form-group">
+            {{ form.dispatch_date.label }} {{ form.dispatch_date(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.delivery_date.label }} {{ form.delivery_date(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.installation_date.label }} {{ form.installation_date(class="form-control") }}
+        </div>
         {{ form.submit(class="btn btn-primary") }}
     </form>
+    {% for field, errors in form.errors.items() %}
+    {% for error in errors %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endfor %}
+    {% endfor %}
+
 {% endblock %}

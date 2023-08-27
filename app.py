@@ -65,13 +65,14 @@ admin_permission = Permission(RoleNeed('admin'))
 fabrication_permission = Permission(RoleNeed('fabrication'))
 dispatch_permission = Permission(RoleNeed('dispatch'))
 project_permission = Permission(RoleNeed('project'))
+project_manager_permission = Permission(RoleNeed('project'))
 
-@app.before_request
+""" @app.before_request
 def restrict_access_to_routes():
     # Restricting access to routes based on user roles
     if not current_user.is_authenticated:
         return
-    user_role = current_user.role.name if current_user.role else ""
+    user_role = current_user.role.name if current_user.role.name else ""
     if request.endpoint in ["add_member", "edit_member", "delete_member"] and user_role != "project_manager":
         return redirect(url_for('dashboard'))
     if request.endpoint in ["update_fabrication"] and user_role != "fabrication_engineer":
@@ -80,10 +81,10 @@ def restrict_access_to_routes():
         return redirect(url_for('dashboard'))
     if request.endpoint in ["update_receive", "update_installation"] and user_role not in ["site_engineer", "supervisor"]:
         return redirect(url_for('dashboard'))
-
+ """
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 def create_admin_user():
@@ -300,7 +301,7 @@ def logout():
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin():
-    if current_user.role != 'Admin':
+    if current_user.role.name != 'Admin':
         flash('You do not have permission to access this page.', 'danger')
         return redirect(url_for('dashboard'))
     
@@ -372,7 +373,7 @@ def delete_role(role_id):
 
 @app.route('/projects/create', methods=['GET', 'POST'])
 @login_required
-@project_manager_permission.require(http_exception=403)
+#@project_manager_permission.require(http_exception=403)
 def create_project():
     if request.method == 'POST':
         name = request.form['name']
@@ -384,7 +385,7 @@ def create_project():
         db.session.add(project)
         db.session.commit()
         flash('Project created successfully!', 'success')
-        return redirect(url_for('view_projects'))
+        return redirect(url_for('dashboard'))#url_for('view_projects')
     return render_template('create_project.html')
 """
 @app.route('/create_project', methods=['GET', 'POST'])
@@ -401,7 +402,7 @@ def create_project():
 """
 @app.route('/projects')
 @login_required
-@project_manager_permission.require(http_exception=403)
+#@project_manager_permission.require(http_exception=403)
 def view_projects():
     projects = Project.query.all()
     return render_template('view_projects.html', projects=projects)
@@ -420,8 +421,10 @@ class SteelMemberForm(FlaskForm):
 def add_member(project_id):
     project = Project.query.get_or_404(project_id)
     form = SteelMemberForm()
-    if current_user.role not in ['Admin', 'Editor']:
+    
+    if current_user.role.name not in ['Admin', 'Editor']:
         flash('You do not have permission to perform this action.', 'danger')
+        print("Redirecting due to insufficient role.")
         return redirect(url_for('dashboard'))
     if form.validate_on_submit():
         member = SteelMember(name=form.name.data, 
@@ -433,9 +436,15 @@ def add_member(project_id):
         db.session.add(member)
         db.session.commit()
         flash('Steel member added successfully!', 'success')
+        print("Steel member added successfully!")
         return redirect(url_for('dashboard'))
-    return render_template('add_member.html', form=form)
-   
+    else:
+        print("Form did not validate.")
+        print(form.errors)  # This will print the form errors to the console
+
+    return render_template('add_member.html', form=form, project=project)
+
+
 @app.route('/view_members/<int:project_id>')
 @login_required
 def view_members(project_id):
@@ -449,7 +458,7 @@ def view_members(project_id):
 def edit_member(id):
     member = SteelMember.query.get_or_404(id)
     form = SteelMemberForm(obj=member)
-    if current_user.role not in ['Admin', 'Editor']:
+    if current_user.role.name not in ['Admin', 'Editor']:
         flash('You do not have permission to perform this action.', 'danger')
         return redirect(url_for('dashboard'))
     if form.validate_on_submit():
@@ -676,13 +685,16 @@ def dashboard():
     if not current_project_id:
         flash('Please select a project first', 'warning')
         return redirect(url_for('select_project'))
-    
-    current_project = Project.query.get_or_404(current_project_id)
+    current_project = db.session.get(Project, current_project_id)
+    if not current_project:
+        flash('Project not found', 'error')
+        return redirect(url_for('select_project'))  # or some other appropriate route
+
     search_name = request.args.get('search_name')
     from_dispatch_date = request.args.get('from_dispatch_date')
     to_dispatch_date = request.args.get('to_dispatch_date')
     # Add logic for other search criteria
-
+   # has_permission = current_user.has_permission('view_reports')
     query = SteelMember.query
 
     if search_name:
@@ -692,7 +704,7 @@ def dashboard():
     # Add logic for other search criteria
 
     members = query.all()
-    return render_template('dashboard.html', current_project=current_project, members=members, gantt_chart=gantt_chart, percentage_completion_chart=percentage_completion_chart, delivery_rate_chart=delivery_rate_chart)
+    return render_template('dashboard.html', current_project=current_project, members=members)#, gantt_chart=gantt_chart, percentage_completion_chart=percentage_completion_chart, delivery_rate_chart=delivery_rate_chart
    
 
 @app.route('/generate_report', methods=['GET', 'POST'])
